@@ -1,0 +1,71 @@
+<html>
+<head>
+	<meta charset="UTF-8">
+	<link rel="stylesheet" href="style.css">
+	<script src="//ajax.googleapis.com/ajax/libs/jquery/2.1.0/jquery.min.js"></script>
+	<script type="text/javascript" src="jquery.inputmask.js"></script>
+</head>
+
+<body>
+	
+	<div id="fields">
+		<form name="feedback" id="amodip">
+			<input type="hidden" value="" name="key"/>
+			<label for="uname">Имя</label><input name="uname" id="uname" required><br>
+			<label for="tel">Телефон:</label><input name="tel" id="tel" required><br>
+			<label for="email">email:</label><input name="email" id="email" required><br>
+			<button type="submit">Отправить</button>
+		</form>
+	</div>
+	<br>
+	<p id="content"></p>
+	<script type="text/javascript">
+	$(document).ready(function() {
+		$("#tel").inputmask("+7(999)999-99-99")
+	});
+	//validateEmail - проверяет корректность email адреса
+	function validateEmail(email) {
+		var pattern  = /^(([^<>()[\]\\.,;:\s@\"]+(\.[^<>()[\]\\.,;:\s@\"]+)*)|(\".+\"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+		return pattern .test(email);
+	}
+	//validate - получает адрес и проверяет корректность
+	function validate() {
+		var $result = $("#content");
+		var email = $("#email").val();
+		$result.text("");		
+		if (validateEmail(email)) {
+			$result.text(email + " подтвержден.");			
+			return true;
+		} else {
+			$result.text(email + " не корректен.");
+			return false;
+		}
+		
+	}	
+	//Сама валидация и отправка формы
+	$("#amodip").submit(function(){
+		// сначала валидируем email
+		if (validate() == true) {
+			// оставляем в поле телефон только цифры
+			var strtel = $("#tel").val()			
+			//var tel = preg_replace('/[^0-9]/', '', strtel);
+			// если цифр больше 5 то
+			//if (tel.length > 5) {
+				var mail = $("#email").val();
+				//$("#tel").val(tel);
+				var str = $(this).serialize();
+				$.ajax({
+					type:"POST",
+					url: "post.php",
+					data: str,
+					success: function(html){
+						$("#content").html(html);
+					}
+				});
+			//}
+		}
+		return false;
+	});
+</script>
+</body>
+</html>
