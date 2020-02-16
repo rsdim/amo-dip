@@ -11,9 +11,12 @@
 	<div id="fields">
 		<form name="feedback" id="amodip">
 			<input type="hidden" value="" name="key"/>
-			<label for="uname">Имя</label><input name="uname" id="uname" required><br>
-			<label for="tel">Телефон:</label><input name="tel" id="tel" required><br>
-			<label for="email">email:</label><input name="email" id="email" required><br>
+			<label for="uname">Имя: </label><input name="uname" id="uname" required><br>
+			<br>
+			<label for="tel">Телефон: </label><input name="tel" id="tel" required><br>
+			<br>
+			<label for="email">email: </label><input name="email" id="email" required><br>
+			<br>
 			<button type="submit">Отправить</button>
 		</form>
 	</div>
@@ -66,6 +69,7 @@
 		}
 		return false;
 	});
-</script>
+	</script>
+	<p id="start"><a href="/amo-dip/cron.php">Запусть загрузку в амо</a></p>
 </body>
 </html>

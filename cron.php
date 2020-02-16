@@ -32,6 +32,7 @@ if (
 	$files1 = scandir($dir);	
 	foreach($files1 as $nodefile) {
 		if (strlen($nodefile)>4) {
+			$searchflag = "";
 			//обрабатываем только файлы удовлетворящие нужному критерию
 			$strpost = @file_get_contents("in/".$nodefile);
 			$arrpost = json_decode($strpost, TRUE);
@@ -42,59 +43,40 @@ if (
 			$tel = str_replace("+","",$tel);
 			$tel = str_replace("-","",$tel);
 			$tel = str_replace("(","",$tel);
-			$tel = str_replace(")","",$tel);
-			echo "tel=".$tel;
+			$tel = str_replace(")","",$tel);			
 			$email = $arrpost["email"];
+			echo "Ищем по email:".$email;
 			$arrcontacts = fncAmocrmContactsList($amodomain, $strCookieFile, $email);
 			echo "<br>ContactsList:".json_encode($arrcontacts);
 			if (
 				$arrcontacts['boolOk'] == true
 			) {
-				//контакт по email найден, создаем сделку и крепим к отвественному контакта
+				//контакты по email найдены, создаем сделку и крепим к отвественному контакта
+				//проверим точное совпадение
+				$emailflag = "";
+				$items = $arrcontacts["arrResponse"]["_embedded"]["items"];
+				foreach($items as $contactitem) {
+					$customfields = $contactitem["custom_fields"];
+					foreach($customfields as $customfield) {
+						if ($customfield["code"] == "EMAIL") {
+							foreach($customfield["values"] as $emailvalue) {
+								if ($emailvalue["value"] == $email) {
+									$emailflag = "1";
+									$responsible_user_id = $contactitem["responsible_user_id"];
+									$contact_id = $contactitem["id"];
+								}
+							}
+						}
+					}
+				}
+				if ($emailflag == "1") {
 				//для простоты берем ответственного 1го контакта 
-				$responsible_user_id = $arrcontacts["arrResponse"]["_embedded"]["items"][0]["responsible_user_id"];
-				$contact_id = $arrcontacts["arrResponse"]["_embedded"]["items"][0]["id"];
-				//создаем контакт и сделку
-				$arrCreateLead = array(
-					array(
-						"name" => "Заявка с сайта.Обработать лид с сайта - ".$nodefile,
-						"status_id" => "3178606",
-						"responsible_user_id" => $responsible_user_id,
-						"contacts_id" => array($contact_id)
-					)
-				);
-				$arrResponceLead = fncAmocrmLeadsCreate( $amodomain, $strCookieFile,  $arrCreateLead);
-				echo "<br>Created lead:".json_encode($arrResponceLead);
-				$leadId = $arrResponceLead["arrResponse"]["_embedded"]["items"][0]["id"];
-				$linktolead = 'https://dprastegaev.amocrm.ru/leads/detail/'.$leadId;
-				//создадим задачу 
-				$arrTasksCreate = array(
-					array(
-						"element_id" => $leadId,
-						"element_type" => 2,
-						"task_type" => 1,
-						"complete_till" => time()+86400,
-						"responsible_user_id" => $responsible_user_id,
-						"text" => "Обработать лид с сайта"
-					)
-				);
-				$arrResponceTask = fncAmocrmTasksCreate( $amodomain, $strCookieFile, $arrTasksCreate);
-				//===отправим письмо администратору аккаунта
-				SendMailToAdmin($adminmail, "По заявке с сайта создана сделка!", $linktolead);
-				//---the end-------------
-			} else {
-				//ищем по телефону
-				
-				$arrcontacts = fncAmocrmContactsList($amodomain, $strCookieFile, $tel);
-				if (
-					$arrcontacts['boolOk'] == true
-				) {
-					//контакт по email найден, создаем сделку и крепим к отвественному контакта
-					$responsible_user_id = $arrcontacts["arrResponse"]["_embedded"]["items"][0]["responsible_user_id"];		
-					$contact_id = $arrcontacts["arrResponse"]["_embedded"]["items"][0]["id"];					
+					//$responsible_user_id = $arrcontacts["arrResponse"]["_embedded"]["items"][0]["responsible_user_id"];
+					//$contact_id = $arrcontacts["arrResponse"]["_embedded"]["items"][0]["id"];
+					//создаем контакт и сделку
 					$arrCreateLead = array(
 						array(
-							"name" => "Заявка с сайта. Обработать лид с сайта - ".$nodefile,
+							"name" => "Заявка с сайта.Обработать лид с сайта - ".$nodefile,
 							"status_id" => "3178606",
 							"responsible_user_id" => $responsible_user_id,
 							"contacts_id" => array($contact_id)
@@ -102,7 +84,6 @@ if (
 					);
 					$arrResponceLead = fncAmocrmLeadsCreate( $amodomain, $strCookieFile,  $arrCreateLead);
 					echo "<br>Created lead:".json_encode($arrResponceLead);
-					
 					$leadId = $arrResponceLead["arrResponse"]["_embedded"]["items"][0]["id"];
 					$linktolead = 'https://dprastegaev.amocrm.ru/leads/detail/'.$leadId;
 					//создадим задачу 
@@ -113,14 +94,107 @@ if (
 							"task_type" => 1,
 							"complete_till" => time()+86400,
 							"responsible_user_id" => $responsible_user_id,
-							"text" => "Обработать лид с сайта"
+							"text" => "Обработать лид с сайта. Телефон:".$tel." email:".$email
 						)
 					);
 					$arrResponceTask = fncAmocrmTasksCreate( $amodomain, $strCookieFile, $arrTasksCreate);
+					$searchflag = "1";
 					//===отправим письмо администратору аккаунта
 					SendMailToAdmin($adminmail, "По заявке с сайта создана сделка!", $linktolead);
-					//---the end-------------
 				} else {
+					//ищем по телефону
+					echo "<br>Ищем по tel1=".$tel;
+					$arrcontacts = fncAmocrmContactsList($amodomain, $strCookieFile, $tel);
+					if (is_null($arrcontacts["arrResponse"])) {
+						
+					} else {
+						echo "<br>ContactsList:".json_encode($arrcontacts);
+						if (
+							$arrcontacts['boolOk'] == true
+						) {
+							//контакт по email найден, создаем сделку и крепим к отвественному контакта
+							$responsible_user_id = $arrcontacts["arrResponse"]["_embedded"]["items"][0]["responsible_user_id"];		
+							$contact_id = $arrcontacts["arrResponse"]["_embedded"]["items"][0]["id"];					
+							$arrCreateLead = array(
+								array(
+									"name" => "Заявка с сайта. Обработать лид с сайта - ".$nodefile,
+									"status_id" => "3178606",
+									"responsible_user_id" => $responsible_user_id,
+									"contacts_id" => array($contact_id)
+								)
+							);
+							$arrResponceLead = fncAmocrmLeadsCreate( $amodomain, $strCookieFile,  $arrCreateLead);
+							echo "<br>Created lead:".json_encode($arrResponceLead);
+					
+							$leadId = $arrResponceLead["arrResponse"]["_embedded"]["items"][0]["id"];
+							$linktolead = 'https://dprastegaev.amocrm.ru/leads/detail/'.$leadId;
+							//создадим задачу 
+							$arrTasksCreate = array(
+								array(
+									"element_id" => $leadId,
+									"element_type" => 2,
+									"task_type" => 1,
+									"complete_till" => time()+86400,
+									"responsible_user_id" => $responsible_user_id,
+									"text" => "Обработать лид с сайта. Телефон:".$tel." email:".$email
+								)
+							);
+							$arrResponceTask = fncAmocrmTasksCreate( $amodomain, $strCookieFile, $arrTasksCreate);
+							//===отправим письмо администратору аккаунта
+							SendMailToAdmin($adminmail, "По заявке с сайта создана сделка!", $linktolead);
+							$searchflag = "1";
+							//---the end-------------
+						}
+					}
+				}	
+				//---the end-------------
+			} else {
+				//ищем по телефону
+				echo "<br>Ищем по tel2=".$tel;
+				$arrcontacts = fncAmocrmContactsList($amodomain, $strCookieFile, $tel);
+				if (
+					$arrcontacts['boolOk'] == true
+				) {
+					if (is_null($arrcontacts["arrResponse"])) {
+						
+					} else {	
+						//контакт по email найден, создаем сделку и крепим к отвественному контакта
+						$responsible_user_id = $arrcontacts["arrResponse"]["_embedded"]["items"][0]["responsible_user_id"];		
+						$contact_id = $arrcontacts["arrResponse"]["_embedded"]["items"][0]["id"];					
+						$arrCreateLead = array(
+							array(
+								"name" => "Заявка с сайта. Обработать лид с сайта - ".$nodefile,
+								"status_id" => "3178606",
+								"responsible_user_id" => $responsible_user_id,
+								"contacts_id" => array($contact_id)
+							)
+						);
+						$arrResponceLead = fncAmocrmLeadsCreate( $amodomain, $strCookieFile,  $arrCreateLead);
+						echo "<br>Created lead:".json_encode($arrResponceLead);
+					
+						$leadId = $arrResponceLead["arrResponse"]["_embedded"]["items"][0]["id"];
+						$linktolead = 'https://dprastegaev.amocrm.ru/leads/detail/'.$leadId;
+						//создадим задачу 
+						$arrTasksCreate = array(
+							array(
+								"element_id" => $leadId,
+								"element_type" => 2,
+								"task_type" => 1,
+								"complete_till" => time()+86400,
+								"responsible_user_id" => $responsible_user_id,
+								"text" => "Обработать лид с сайта. Телефон:".$tel." email:".$email
+							)
+						);
+						$arrResponceTask = fncAmocrmTasksCreate( $amodomain, $strCookieFile, $arrTasksCreate);
+						//===отправим письмо администратору аккаунта
+						SendMailToAdmin($adminmail, "По заявке с сайта создана сделка!", $linktolead);
+						$searchflag = "1";
+						//---the end-------------
+					}
+				} 
+			}
+			//если не получилось найти по email или телефону
+				if ($searchflag == "")	{
 					//определяем ответственного 
 					
 					$maxleads = 1000000;
@@ -222,7 +296,7 @@ if (
 								"element_type" => 2,
 								"task_type" => 1,
 								"complete_till" => time()+86400,
-								"text" => "Обработать лид с сайта, проверить данные нового контакта.",
+								"text" => "Обработать лид с сайта, проверить данные нового контакта. елефон:".$tel." email:".$email,
 								"responsible_user_id" => $managerid,
 								"created_by" => $managerid
 							)
@@ -234,7 +308,7 @@ if (
 						SendMailToAdmin($adminmail, "По заявке с сайта создана сделка!", $linktolead);
 					}					
 				}
-			}
+			
 			rename("in/".$nodefile,"out/".$nodefile);
 		}
 		echo "<br>";
